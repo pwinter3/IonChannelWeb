@@ -1,0 +1,216 @@
+<!--{% if tissue_list %}
+    <ul>
+    {% for tissue in tissue_list %}
+        <li>{{ tissue.name }}</li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>No tissues in database.</p>
+{% endif %}-->
+
+
+<form action="/db/" method="post" id="dbform" data-protein-url="{% url 'ajax_load_proteins' %}" novalidate>
+    {% csrf_token %}
+
+    {{ form.non_field_errors }}
+    <div style="display: inline-block">
+    <div class="fieldWrapper">
+        {{ form.tissue_mc.errors }}
+    </div>
+        {{ form.tissue_mc.label_tag }}
+    <div class="fieldWrapper">
+        {{ form.tissue_mc }}
+    </div>
+    </div>
+
+    <div style="display: inline-block">
+    
+    <div class="fieldWrapper">
+        {{ form.protein_mc.errors }}
+    </div>
+    <div class="fieldWrapper">
+        {{ form.protein_mc.label_tag }}
+    </div>
+    <div id="protfield" class="fieldWrapper">
+        {{ form.protein_mc }}
+    </div>
+
+
+    </div>
+
+    <br/>
+
+    <div class="fieldWrapper">
+        {{ form.threshold.label_tag }}
+    </div>
+
+    <div class="fieldWrapper">
+        {{ form.threshold }}
+    </div>
+
+    <br/>
+
+    <div class="fieldWrapper">
+        {{ form.channel_select_type.label_tag }}
+    </div>
+
+    <div class="fieldWrapper">
+        {{ form.channel_select_type }}
+    </div>
+
+    <input type="submit" value="Lookup" />
+
+<br/>
+<br/>
+
+
+<!--    <div class="fieldWrapper">
+Ion channels with compound interaction data are marked with '+'.
+<br/>
+Ion channels with gene expression data are marked with '*'.
+    </div>
+-->
+
+</form>
+
+<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-cookie/1.4.1/jquery.cookie.js"></script>
+<script>
+var csrftoken = $.cookie('csrftoken');
+
+function csrfSafeMethod(method) {
+    // these HTTP methods do not require CSRF protection
+    return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+}
+
+$("#id_tissue_mc").change(function () {
+  var url = $("#dbform").attr("data-protein-url");  // get the url of the `load_cities` view
+  var tissue_names = $(this).val();  // get the selected country ID from the HTML input
+  var thresholdvalue = $("#id_threshold").val()
+  
+  //console.log( $(this).val() )
+  
+  $.ajaxSetup({
+    beforeSend: function(xhr, settings) {
+        if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
+    }
+    });
+
+  //console.log( "Done before setup" )
+  
+  $.ajax({                       // initialize an AJAX request
+    type: "POST",
+    url: url,                    // set the url of the request (= localhost:8000/hr/ajax/load-cities/)
+    data: JSON.stringify({
+      'tissues': tissue_names,       // add the country id to the GET parameters
+      'threshold': thresholdvalue       // add the country id to the GET parameters
+    }),
+    dataType: "json",
+    success: function (data) {   // `data` is the return of the `load_cities` view function
+          var new_options = data;
+    
+    
+          //console.log( "Success" );
+          
+          //console.log( new_options.length );
+          
+          //alert(new_options[0].upac);
+
+          //alert(new_options[0].label);
+          
+          $("#id_protein_mc").empty();
+          
+          //$("#id_protein_mc").choices = data
+          
+          $.each(new_options, function(key, value) {   
+            $('#id_protein_mc')
+                .append($("<option value="+value.upac+">"+value.label+"</option>"));
+                //, { value : value.upac })
+                //.text(value.label)); 
+          });
+          
+          //var prot_select = $("#protfield");
+          
+          //$("#act_ids_form_div").html(data);  // replace the contents of the city input with the data that came from the server
+    },
+    error: function (data) {
+        console.log( "Error" )
+    }
+  });
+  
+  return false;
+
+});
+</script>
+
+<script>
+var csrftoken = $.cookie('csrftoken');
+
+function csrfSafeMethod(method) {
+    // these HTTP methods do not require CSRF protection
+    return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+}
+
+$("#id_threshold").change(function () {
+  var url = $("#dbform").attr("data-protein-url");  // get the url of the `load_cities` view
+  var tissue_names = $("#id_tissue_mc").val();  // get the selected country ID from the HTML input
+  var thresholdvalue = $(this).val()
+  
+  //console.log( $(this).val() )
+  
+  $.ajaxSetup({
+    beforeSend: function(xhr, settings) {
+        if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
+    }
+    });
+
+  //console.log( "Done before setup" )
+  
+  $.ajax({                       // initialize an AJAX request
+    type: "POST",
+    url: url,                    // set the url of the request (= localhost:8000/hr/ajax/load-cities/)
+    data: JSON.stringify({
+      'tissues': tissue_names,       // add the country id to the GET parameters
+      'threshold': thresholdvalue       // add the country id to the GET parameters
+    }),
+    dataType: "json",
+    success: function (data) {   // `data` is the return of the `load_cities` view function
+          var new_options = data;
+    
+    
+          //console.log( "Success" );
+          
+          //console.log( new_options.length );
+          
+          //alert(new_options[0].upac);
+
+          //alert(new_options[0].label);
+          
+          $("#id_protein_mc").empty();
+          
+          //$("#id_protein_mc").choices = data
+          
+          $.each(new_options, function(key, value) {   
+            $('#id_protein_mc')
+                .append($("<option value="+value.upac+">"+value.label+"</option>"));
+                //, { value : value.upac })
+                //.text(value.label)); 
+          });
+          
+          //var prot_select = $("#protfield");
+          
+          //$("#act_ids_form_div").html(data);  // replace the contents of the city input with the data that came from the server
+    },
+    error: function (data) {
+        console.log( "Error" )
+    }
+  });
+  
+  return false;
+
+});
+</script>
