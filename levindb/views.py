@@ -12,9 +12,12 @@ from django.template.loader import render_to_string
 from .models import *
 from .levindb import *
 import json
+import logging
 
 
 PATH_DB = '/home/ubuntu/webserver/ionchannel/levin.db'
+
+LOG_FILENAME = '/home/ubuntu/webserver/log2'
 
 
 def debuglog(s):
