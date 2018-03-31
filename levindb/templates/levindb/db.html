@@ -9,6 +9,23 @@
 {% endif %}-->
 
 
+<h1>EDEn - Electroceutical Design Environment</h1>
+
+Instructions:
+<br/><br/>
+1. Select one or more tissues.
+<br/><br/>
+2. Select one or more ion channels.
+<br/><br/>
+3. Optional: Change threshold value. Only ion channels with expression greater 
+than threshold will be displayed. Ion channels in BETSE will always be displayed.
+<br/><br/>
+4. Optional: Select comprehensive to show all channels expressed in the 
+selected tissues (ordered by most specific first). Select Unique to show only
+channels that are specific to the selected tissues.
+<br/>
+<br/>
+
 <form action="/db/" method="post" id="dbform" data-protein-url="{% url 'ajax_load_proteins' %}" novalidate>
     {% csrf_token %}
 
@@ -40,11 +57,10 @@
 
     <br/>
 
-    <div class="fieldWrapper">
-        {{ form.threshold.label_tag }}
-    </div>
+    <br/>
 
     <div class="fieldWrapper">
+        {{ form.threshold.label_tag }}
         {{ form.threshold }}
     </div>
 
