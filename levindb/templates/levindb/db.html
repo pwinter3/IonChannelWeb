@@ -1,232 +1,268 @@
-<!--{% if tissue_list %}
-    <ul>
-    {% for tissue in tissue_list %}
-        <li>{{ tissue.name }}</li>
-    {% endfor %}
-    </ul>
-{% else %}
-    <p>No tissues in database.</p>
-{% endif %}-->
-
-
 <h1>EDEn - Electroceutical Design Environment</h1>
-
-Instructions:
-<br/><br/>
-1. Select one or more tissues.
-<br/><br/>
-2. Select one or more ion channels.
-<br/><br/>
-3. Optional: Change threshold value. Only ion channels with expression greater 
-than threshold will be displayed. Ion channels in BETSE will always be displayed.
-<br/><br/>
-4. Optional: Select comprehensive to show all channels expressed in the 
-selected tissues (ordered by most specific first). Select Unique to show only
-channels that are specific to the selected tissues.
+<h2>A tissue specific ion channel database</h2>
 <br/>
-<br/>
-
-<form action="/db/" method="post" id="dbform" data-protein-url="{% url 'ajax_load_proteins' %}" novalidate>
+<form action="/db/" method="post" id="dbform" 
+        data-protein-url="{% url 'ajax_load_proteins' %}" 
+        data-protein-desc-url="{% url 'ajax_load_protein_desc' %}" 
+        show-results-url="{% url 'ajax_show_results' %}" 
+        novalidate>
     {% csrf_token %}
-
     {{ form.non_field_errors }}
-    <div style="display: inline-block">
+    1. Select one or more tissues:
     <div class="fieldWrapper">
         {{ form.tissue_mc.errors }}
     </div>
-        {{ form.tissue_mc.label_tag }}
     <div class="fieldWrapper">
         {{ form.tissue_mc }}
     </div>
-    </div>
-
-    <div style="display: inline-block">
-    
-    <div class="fieldWrapper">
-        {{ form.protein_mc.errors }}
-    </div>
-    <div class="fieldWrapper">
-        {{ form.protein_mc.label_tag }}
-    </div>
-    <div id="protfield" class="fieldWrapper">
-        {{ form.protein_mc }}
-    </div>
-
-
-    </div>
-
     <br/>
-
-    <br/>
-
     <div class="fieldWrapper">
-        {{ form.threshold.label_tag }}
+        2. Show ion channels with mRNA expression level greater than
         {{ form.threshold }}
+        {{ form.include_betse }}
+        {{ form.include_betse.label }}
     </div>
-
     <br/>
-
     <div class="fieldWrapper">
-        {{ form.channel_select_type.label_tag }}
-    </div>
-
-    <div class="fieldWrapper">
+        3. Select comprehensive to show all channels expressed in the selected 
+        tissues (ordered by most specific first).
+        <br/>
+        Select Unique to show only channels that are specific to the selected 
+        tissues.
         {{ form.channel_select_type }}
     </div>
-
-    <input type="submit" value="Lookup" />
-
-<br/>
-<br/>
-
-
-<!--    <div class="fieldWrapper">
-Ion channels with compound interaction data are marked with '+'.
-<br/>
-Ion channels with gene expression data are marked with '*'.
+    <div style="display:inline-block">
+        4. Select one or more ion channels:
+        <div class="fieldWrapper">
+            {{ form.protein_mc.errors }}
+        </div>
+        <div id="protfield" class="fieldWrapper">
+            {{ form.protein_mc }}
+        </div>
     </div>
--->
-
+    <div style="display:inline-block">
+        &nbsp;&nbsp;&nbsp;&nbsp;
+    </div>
+    <div style="display:inline-block">
+        Channelpedia descriptions:
+        <div id="protdesc" class="fieldWrapper">
+            {{ form.protein_desc }}
+        </div>
+    </div>
+    <br/><br/>
+    <input id="lookup_button" type="button" value="Lookup" />
+    <br/><br/><br/>
+    <div id="results_div" style="height:500px;overflow:auto;">
+    </div>
 </form>
 
 <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-cookie/1.4.1/jquery.cookie.js"></script>
+
+<script>
+    var csrftoken = $.cookie('csrftoken');
+    function csrfSafeMethod(method) {
+        return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+    }
+    $("#id_tissue_mc").change(function () {
+        var url = $("#dbform").attr("data-protein-url");
+        var tissue_names = $(this).val();
+        var thresholdvalue = $("#id_threshold").val();
+        var include_betse = $("#id_include_betse").is(":checked");
+        $("#id_protein_desc").val("");
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            }
+        });
+        $.ajax({
+            type: "POST",
+            url: url,
+            data: JSON.stringify({
+                'tissues': tissue_names,
+                'threshold': thresholdvalue,
+                'include_betse': include_betse
+            }),
+            dataType: "json",
+            success: function (data) {
+                var new_options = data;
+                $("#id_protein_mc").empty();
+                $.each(new_options, function(key, value) {   
+                    $('#id_protein_mc').append($("<option value="+value.upac+">"+value.label+"</option>"));
+                });
+            },
+            error: function (data) {
+                console.log("Error")
+            }
+        });
+        return false;
+    });
+</script>
+
 <script>
 var csrftoken = $.cookie('csrftoken');
-
 function csrfSafeMethod(method) {
-    // these HTTP methods do not require CSRF protection
     return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
 }
-
-$("#id_tissue_mc").change(function () {
-  var url = $("#dbform").attr("data-protein-url");  // get the url of the `load_cities` view
-  var tissue_names = $(this).val();  // get the selected country ID from the HTML input
-  var thresholdvalue = $("#id_threshold").val()
-  
-  //console.log( $(this).val() )
-  
-  $.ajaxSetup({
-    beforeSend: function(xhr, settings) {
-        if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
-            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+$("#id_protein_mc").change(function () {
+    var url = $("#dbform").attr("data-protein-desc-url");  
+    var protein_upacs = $(this).val();  
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+            if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
+                xhr.setRequestHeader("X-CSRFToken", csrftoken);
+            }
         }
-    }
     });
-
-  //console.log( "Done before setup" )
-  
-  $.ajax({                       // initialize an AJAX request
-    type: "POST",
-    url: url,                    // set the url of the request (= localhost:8000/hr/ajax/load-cities/)
-    data: JSON.stringify({
-      'tissues': tissue_names,       // add the country id to the GET parameters
-      'threshold': thresholdvalue       // add the country id to the GET parameters
-    }),
-    dataType: "json",
-    success: function (data) {   // `data` is the return of the `load_cities` view function
-          var new_options = data;
-    
-    
-          //console.log( "Success" );
-          
-          //console.log( new_options.length );
-          
-          //alert(new_options[0].upac);
-
-          //alert(new_options[0].label);
-          
-          $("#id_protein_mc").empty();
-          
-          //$("#id_protein_mc").choices = data
-          
-          $.each(new_options, function(key, value) {   
-            $('#id_protein_mc')
-                .append($("<option value="+value.upac+">"+value.label+"</option>"));
-                //, { value : value.upac })
-                //.text(value.label)); 
-          });
-          
-          //var prot_select = $("#protfield");
-          
-          //$("#act_ids_form_div").html(data);  // replace the contents of the city input with the data that came from the server
-    },
-    error: function (data) {
-        console.log( "Error" )
-    }
-  });
-  
-  return false;
-
+    $.ajax({
+        type: "POST",
+        url: url,                
+        data: JSON.stringify({
+            'protein_upacs': protein_upacs  
+        }),
+        dataType: "json",
+        success: function (data) { 
+            var desc_list = data;
+            $("#id_protein_desc").val("");
+            var val_str = '';
+            $.each(desc_list, function(key, value) {   
+                val_str = val_str + value.name + ' (' + value.upac + '|' +
+                value.gene_symbol + ') ' + value.protein_desc + '\n';
+            });
+            $('#id_protein_desc').val(val_str);
+        },
+        error: function (data) {
+            console.log("Error")
+        }
+    });
+    return false;
 });
 </script>
 
 <script>
 var csrftoken = $.cookie('csrftoken');
-
 function csrfSafeMethod(method) {
-    // these HTTP methods do not require CSRF protection
     return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
 }
-
-$("#id_threshold").change(function () {
-  var url = $("#dbform").attr("data-protein-url");  // get the url of the `load_cities` view
-  var tissue_names = $("#id_tissue_mc").val();  // get the selected country ID from the HTML input
-  var thresholdvalue = $(this).val()
-  
-  //console.log( $(this).val() )
-  
-  $.ajaxSetup({
-    beforeSend: function(xhr, settings) {
-        if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
-            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+$("#id_include_betse").change(function () {
+    var url = $("#dbform").attr("data-protein-url");
+    var tissue_names = $("#id_tissue_mc").val();
+    var thresholdvalue = $("#id_threshold").val();
+    var include_betse = $(this).is(":checked");
+    $("#id_protein_desc").val("");
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+            if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
+                xhr.setRequestHeader("X-CSRFToken", csrftoken);
+            }
         }
-    }
     });
-
-  //console.log( "Done before setup" )
-  
-  $.ajax({                       // initialize an AJAX request
-    type: "POST",
-    url: url,                    // set the url of the request (= localhost:8000/hr/ajax/load-cities/)
-    data: JSON.stringify({
-      'tissues': tissue_names,       // add the country id to the GET parameters
-      'threshold': thresholdvalue       // add the country id to the GET parameters
-    }),
-    dataType: "json",
-    success: function (data) {   // `data` is the return of the `load_cities` view function
-          var new_options = data;
-    
-    
-          //console.log( "Success" );
-          
-          //console.log( new_options.length );
-          
-          //alert(new_options[0].upac);
-
-          //alert(new_options[0].label);
-          
-          $("#id_protein_mc").empty();
-          
-          //$("#id_protein_mc").choices = data
-          
-          $.each(new_options, function(key, value) {   
-            $('#id_protein_mc')
-                .append($("<option value="+value.upac+">"+value.label+"</option>"));
-                //, { value : value.upac })
-                //.text(value.label)); 
-          });
-          
-          //var prot_select = $("#protfield");
-          
-          //$("#act_ids_form_div").html(data);  // replace the contents of the city input with the data that came from the server
-    },
-    error: function (data) {
-        console.log( "Error" )
-    }
-  });
-  
+    $.ajax({
+        type: "POST",
+        url: url,
+        data: JSON.stringify({
+            'tissues': tissue_names,
+            'threshold': thresholdvalue,
+            'include_betse': include_betse
+        }),
+        dataType: "json",
+        success: function (data) {
+            var new_options = data;
+            $("#id_protein_mc").empty();
+            $.each(new_options, function(key, value) {   
+                $('#id_protein_mc').append($("<option value=" + value.upac +
+                ">" + value.label+"</option>"));
+            });
+        },
+        error: function (data) {
+            console.log("Error")
+        }
+    });
   return false;
+});
+</script>
 
+<script>
+var csrftoken = $.cookie('csrftoken');
+function csrfSafeMethod(method) {
+    return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+}
+$("#id_threshold").change(function () {
+    var url = $("#dbform").attr("data-protein-url");
+    var tissue_names = $("#id_tissue_mc").val();
+    var thresholdvalue = $(this).val()
+    var include_betse = $("#id_include_betse").is(":checked");
+    $("#id_protein_desc").val("");
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+            if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
+                xhr.setRequestHeader("X-CSRFToken", csrftoken);
+            }
+        }
+    });
+    $.ajax({
+        type: "POST",
+        url: url,
+        data: JSON.stringify({
+            'tissues': tissue_names,
+            'threshold': thresholdvalue,
+            'include_betse': include_betse
+        }),
+        dataType: "json",
+        success: function (data) {
+            var new_options = data;
+            $("#id_protein_mc").empty();
+            $.each(new_options, function(key, value) {   
+                $('#id_protein_mc').append($("<option value=" + value.upac + 
+                ">"+value.label + "</option>"));
+            });
+        },
+        error: function (data) {
+            console.log("Error")
+        }
+    });
+    return false;
+});
+</script>
+
+<script>
+var csrftoken = $.cookie('csrftoken');
+function csrfSafeMethod(method) {
+    return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+}
+$("#lookup_button").click(function () {
+    var url = $("#dbform").attr("show-results-url");
+    var tissue_names = $("#id_tissue_mc").val();
+    var protein_names = $("#id_protein_mc").val();
+    $("#results_div").empty();
+    if (tissue_names.length >= 1 && protein_names.length >= 1) {
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            }
+        });
+        $.ajax({
+            type: "POST",
+            url: url,
+            data: JSON.stringify({
+                'tissues': tissue_names,
+                'proteins': protein_names
+            }),
+            dataType: "json",
+            success: function (data) {
+                var result_table = data;
+                $("#results_div").append(result_table);
+                console.log('After val assign');
+            },
+            error: function (data) {
+                console.log("Error")
+            }
+        });
+    };
+    return false;
 });
 </script>

@@ -1,10 +1,8 @@
 import sqlite3
 
-
 ASSAY_MICROARRAY = 'microarray'
 ASSAY_RNASEQ = 'RNA-seq'
 ASSAY_IMMUNO = 'immuno'
-
 
 class LevinDatabase(object):
 
@@ -24,7 +22,10 @@ class LevinDatabase(object):
     def get_all_tissue_names(self):
         conn = self.get_conn()
         curs = conn.cursor()
-        curs.execute('''SELECT Name FROM Tissue''')
+        curs.execute('''
+            SELECT Name
+            FROM Tissue
+            ''')
         resultset = curs.fetchall()
         self.cleanup_conn(conn)
         return resultset
@@ -32,39 +33,64 @@ class LevinDatabase(object):
     def get_all_protein_uniprots(self):
         conn = self.get_conn()
         curs = conn.cursor()
-        curs.execute('''SELECT UniProtAccNum FROM Protein''')
+        curs.execute('''
+            SELECT UniProtAccNum
+            FROM Protein
+            ''')
         resultset = curs.fetchall()
         self.cleanup_conn(conn)
         return resultset
-
 
     def get_in_betse_protein(self):
         conn = self.get_conn()
         curs = conn.cursor()
-        curs.execute('''SELECT UniProtAccNum, Name, GeneSymbol FROM Protein
-                WHERE InBETSE = "Y"''')
+        curs.execute('''
+            SELECT UniProtAccNum, Name, GeneSymbol
+            FROM Protein
+            WHERE InBETSE = "Y"
+            ''')
         resultset = curs.fetchall()
         self.cleanup_conn(conn)
         return resultset
 
-    def get_in_betse_or_expr_threshold_protein(self, threshold):
+    def get_in_betse_or_expr_threshold_protein(self, tissue_list, threshold,
+            include_betse=True, specificity_option='comprehensive'):
         conn = self.get_conn()
         curs = conn.cursor()
-        curs.execute('''SELECT UniProtAccNum, Name, GeneSymbol
+        if include_betse:
+            sql = '''
+                SELECT UniProtAccNum, Name, GeneSymbol
                 FROM Protein
-                LEFT JOIN Expression
-                ON (Protein.UniProtAccNum = Expression.UniProtAccNum AND Expression.ExprLevel > 0)
-                WHERE (Protein.InBETSE = "Y" OR Expression.ExprLevel > ?)''', (threshold,))
+                INNER JOIN Expression
+                ON Protein.UniProtAccNum = Expression.ProteinUniProtAccNum
+                WHERE (
+                    Protein.InBETSE = "Y" OR (
+                        Expression.ExprLevel > ? AND Expression.TissueName IN (
+                ''' + ','.join(['?'] * len(tissue_list)) + ')))'
+        else:
+            sql = '''
+                SELECT UniProtAccNum, Name, GeneSymbol
+                FROM Protein
+                INNER JOIN Expression
+                ON Protein.UniProtAccNum = Expression.ProteinUniProtAccNum
+                WHERE (
+                    Expression.ExprLevel > ?
+                    AND Expression.TissueName IN (
+                ''' + ','.join(['?'] * len(tissue_list)) + '))'
+        curs.execute(sql, (threshold,) + tuple(tissue_list))
         resultset = curs.fetchall()
+        resultset = list(set(resultset)) # Remove redundant records
         self.cleanup_conn(conn)
         return resultset
-
 
     def get_gene_symbol_by_uniprot(self, upac):
         conn = self.get_conn()
         curs = conn.cursor()
-        curs.execute('''SELECT GeneSymbol FROM Protein WHERE UniProtAccNum=?''', 
-            (upac,))
+        curs.execute('''
+            SELECT GeneSymbol
+            FROM Protein
+            WHERE UniProtAccNum=?
+            ''', (upac,))
         resultset = curs.fetchone()
         if resultset == None:
             result = ''
@@ -76,10 +102,17 @@ class LevinDatabase(object):
     def exists_expr_threshold(self, tissue, upac, threshold, dataset):
         conn = self.get_conn()
         curs = conn.cursor()
-        curs.execute('''SELECT EXISTS(SELECT 1 FROM Expression
-            WHERE (TissueName=? AND ProteinUniProtAccNum=?
-            AND DatasetName=? AND ExprLevel>=?) LIMIT 1)''',
-            (tissue, upac, dataset, threshold))
+        curs.execute('''
+            SELECT EXISTS(
+                SELECT 1
+                FROM Expression
+                WHERE (
+                    TissueName=? AND ProteinUniProtAccNum=?
+                    AND DatasetName=? AND ExprLevel>=?
+                )
+                LIMIT 1
+            )
+            ''', (tissue, upac, dataset, threshold))
         row = curs.fetchone()
         if row[0] == 1:
             result = True
@@ -91,9 +124,13 @@ class LevinDatabase(object):
     def lookup_protein(self, upac):
         conn = self.get_conn()
         curs = conn.cursor()
-        curs.execute('''SELECT UniProtAccNum, GeneSymbol, Name, ProcessFunction,
-                Ions, Gating, InBETSE, IonChannelClassDesc, IonChannelSubClass,
-                ChemblId FROM Protein WHERE UniProtAccNum=?''', (upac,))
+        curs.execute('''
+            SELECT UniProtAccNum, GeneSymbol, Name, ProcessFunction, Ions,
+                Gating, InBETSE, IonChannelClassDesc, IonChannelSubClass,
+                ChemblId
+            FROM Protein
+            WHERE UniProtAccNum=?
+            ''', (upac,))
         resultset = curs.fetchone()
         if resultset == None:
             result = ['','','','','','','','','','']
@@ -105,8 +142,11 @@ class LevinDatabase(object):
     def get_channelpedia_info(self, ion_channel_sub_class):
         conn = self.get_conn()
         curs = conn.cursor()
-        curs.execute('''SELECT ChannelpediaText, ChannelpediaURL
-                FROM ChannelSubClass WHERE Name=?''', (ion_channel_sub_class,))
+        curs.execute('''
+            SELECT ChannelpediaText, ChannelpediaURL
+            FROM ChannelSubClass
+            WHERE Name=?
+            ''', (ion_channel_sub_class,))
         resultset = curs.fetchone()
         if resultset == None:
             result = ['','']
@@ -118,10 +158,12 @@ class LevinDatabase(object):
     def get_expr_level_for_dataset(self, upac, tissue, dataset):
         conn = self.get_conn()
         curs = conn.cursor()
-        curs.execute('''SELECT ExprLevel FROM Expression
+        curs.execute('''
+            SELECT ExprLevel
+            FROM Expression
             WHERE ProteinUniProtAccNum=? AND TissueName=? AND DatasetName=?
-            AND AssayType=?''',
-            (upac, tissue, dataset, ASSAY_RNASEQ))
+                AND AssayType=?
+            ''', (upac, tissue, dataset, ASSAY_RNASEQ))
         resultset = curs.fetchall()
         self.cleanup_conn(conn)
         return resultset
@@ -129,19 +171,44 @@ class LevinDatabase(object):
     def get_expr_level_qual_for_dataset(self, upac, tissue, dataset):
         conn = self.get_conn()
         curs = conn.cursor()
-        curs.execute('''SELECT ExprLevelQual FROM Expression
+        curs.execute('''
+            SELECT ExprLevelQual
+            FROM Expression
             WHERE ProteinUniProtAccNum=? AND TissueName=? AND DatasetName=?
-            AND AssayType=?''',
-            (upac, tissue, dataset, ASSAY_IMMUNO))
+                AND AssayType=?
+            ''', (upac, tissue, dataset, ASSAY_IMMUNO))
         resultset = curs.fetchall()
         self.cleanup_conn(conn)
         return resultset
 
-    def get_interaction_ids_by_uniprot(self, upac):
+    def get_interaction_ids_by_uniprot(self, upac, type=None, unit=None):
         conn = self.get_conn()
         curs = conn.cursor()
-        curs.execute('''SELECT Id FROM Interaction WHERE TargetUniProtAccNum=?''', 
-            (upac,))
+        if type != None and unit != None:
+            curs.execute('''
+                SELECT Id
+                FROM Interaction
+                WHERE TargetUniProtAccNum=? AND AssayType = ?
+                    AND StrengthUnits = ?
+                ''', (upac, type, unit))
+        elif type != None:
+            curs.execute('''
+                SELECT Id
+                FROM Interaction
+                WHERE TargetUniProtAccNum=? AND AssayType = ?
+                ''', (upac, type))
+        elif unit != None:
+            curs.execute('''
+                SELECT Id
+                FROM Interaction
+                WHERE TargetUniProtAccNum=? AND StrengthUnits = ?
+                ''', (upac, unit))
+        else:
+            curs.execute('''
+                SELECT Id
+                FROM Interaction
+                WHERE TargetUniProtAccNum=?
+                ''', (upac,))
         resultset = curs.fetchall()
         self.cleanup_conn(conn)
         return resultset
@@ -149,9 +216,12 @@ class LevinDatabase(object):
     def lookup_interaction(self, id):
         conn = self.get_conn()
         curs = conn.cursor()
-        curs.execute('''SELECT Id, TargetUniProtAccNum, CompoundId, ActionType,
-            ActionDesc, Strength, StrengthUnits, AssayType, ChemblId, SourceDBName
-            FROM Interaction WHERE Id=?''', (id,))
+        curs.execute('''
+            SELECT Id, TargetUniProtAccNum, CompoundId, ActionType, ActionDesc,
+                Strength, StrengthUnits, AssayType, ChemblId, SourceDBName
+            FROM Interaction
+            WHERE Id=?
+            ''', (id,))
         resultset = curs.fetchone()
         if resultset == None:
             result = ['', '', '', '', '', '', '', '', '', '']
@@ -163,10 +233,12 @@ class LevinDatabase(object):
     def lookup_compound(self, id):
         conn = self.get_conn()
         curs = conn.cursor()
-        curs.execute('''SELECT Id, SMILES, InChI, Name, ChemblId, Synonyms,
-                ApprovalStatus, FirstApprovalYear, SourceDBName
-                FROM Compound WHERE Id=?''', 
-            (id,))
+        curs.execute('''
+            SELECT Id, SMILES, InChI, Name, ChemblId, Synonyms, ApprovalStatus,
+                FirstApprovalYear, SourceDBName
+            FROM Compound
+            WHERE Id=?
+            ''', (id,))
         resultset = curs.fetchone()
         if resultset == None:
             result = ['', '', '', '', '', '', '', '', '']
@@ -175,3 +247,18 @@ class LevinDatabase(object):
         self.cleanup_conn(conn)
         return result
 
+    def get_specificity(self, tissue_name, upac):
+        conn = self.get_conn()
+        curs = conn.cursor()
+        curs.execute('''
+            SELECT SpecificityScore
+            FROM Specificity
+            WHERE TissueName = ? AND UniProtAccNum = ?
+            ''', (tissue_name, upac))
+        resultset = curs.fetchone()
+        if resultset == None:
+            result = ''
+        else:
+            result = resultset[0]
+        self.cleanup_conn(conn)
+        return result
