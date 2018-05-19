@@ -1,5 +1,9 @@
-<h1>EDEn - Electroceutical Design Environment</h1>
-<h2>A tissue specific ion channel database</h2>
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+
+<div class="w3-container">
+    <h1>EDEn - Electroceutical Design Environment</h1>
+    <h2>A tissue specific ion channel database</h2>
+</div>
 <br/>
 <form action="/db/" method="post" id="dbform" 
         data-protein-url="{% url 'ajax_load_proteins' %}" 
@@ -8,22 +12,22 @@
         novalidate>
     {% csrf_token %}
     {{ form.non_field_errors }}
-    1. Select one or more tissues:
-    <div class="fieldWrapper">
+    <div class="w3-container fieldWrapper">
+        1. Select one or more tissues:
         {{ form.tissue_mc.errors }}
     </div>
-    <div class="fieldWrapper">
+    <div class="w3-container fieldWrapper">
         {{ form.tissue_mc }}
     </div>
     <br/>
-    <div class="fieldWrapper">
+    <div class="w3-container fieldWrapper">
         2. Show ion channels with mRNA expression level greater than
         {{ form.threshold }}
         {{ form.include_betse }}
         {{ form.include_betse.label }}
     </div>
     <br/>
-    <div class="fieldWrapper">
+    <div class="w3-container fieldWrapper">
         3. Select comprehensive to show all channels expressed in the selected 
         tissues (ordered by most specific first).
         <br/>
@@ -31,28 +35,32 @@
         tissues.
         {{ form.channel_select_type }}
     </div>
-    <div style="display:inline-block">
-        4. Select one or more ion channels:
-        <div class="fieldWrapper">
-            {{ form.protein_mc.errors }}
+    <div class="w3-container">
+        <div class="w3-display-container" style="display:inline-block">
+            4. Select one or more ion channels:
+            <div class="w3-container fieldWrapper">
+                {{ form.protein_mc.errors }}
+            </div>
+            <div id="protfield" class="w3-container fieldWrapper">
+                {{ form.protein_mc }}
+            </div>
         </div>
-        <div id="protfield" class="fieldWrapper">
-            {{ form.protein_mc }}
-        </div>
-    </div>
-    <div style="display:inline-block">
-        &nbsp;&nbsp;&nbsp;&nbsp;
-    </div>
-    <div style="display:inline-block">
-        Channelpedia descriptions:
-        <div id="protdesc" class="fieldWrapper">
-            {{ form.protein_desc }}
+        <div class="w3-display-container" style="display:inline-block">
+            <div id="protdesc" class="w3-container fieldWrapper">
+                {{ form.protein_desc }}
+            </div>
         </div>
     </div>
     <br/><br/>
-    <input id="lookup_button" type="button" value="Lookup" />
-    <br/><br/><br/>
-    <div id="results_div" style="height:500px;overflow:auto;">
+    <div class="w3-container">
+        <input id="lookup_button" type="button" value="Lookup" />
+    </div>
+    <br/><br/>
+    <div class="w3-container" style="height:500px;overflow:auto;">
+        <div id="results_div_header">
+        </div>
+        <div id="results_div">
+        </div>
     </div>
 </form>
 
@@ -90,7 +98,8 @@
                 var new_options = data;
                 $("#id_protein_mc").empty();
                 $.each(new_options, function(key, value) {   
-                    $('#id_protein_mc').append($("<option value="+value.upac+">"+value.label+"</option>"));
+                    $('#id_protein_mc').append($("<option value=" +
+                    value.upac + ">" + value.label + "</option>"));
                 });
             },
             error: function (data) {
@@ -236,6 +245,7 @@ $("#lookup_button").click(function () {
     var url = $("#dbform").attr("show-results-url");
     var tissue_names = $("#id_tissue_mc").val();
     var protein_names = $("#id_protein_mc").val();
+    $("#results_div_header").empty();
     $("#results_div").empty();
     if (tissue_names.length >= 1 && protein_names.length >= 1) {
         $.ajaxSetup({
@@ -254,9 +264,9 @@ $("#lookup_button").click(function () {
             }),
             dataType: "json",
             success: function (data) {
-                var result_table = data;
+                var result_table_header = data["results_table_header"];
+                var result_table = data["results_table"];
                 $("#results_div").append(result_table);
-                console.log('After val assign');
             },
             error: function (data) {
                 console.log("Error")
